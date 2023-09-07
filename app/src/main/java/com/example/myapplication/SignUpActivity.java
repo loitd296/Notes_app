@@ -1,0 +1,120 @@
+package com.example.myapplication;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.os.Bundle;
+import android.util.Patterns;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.ktx.Firebase;
+
+import java.util.regex.Pattern;
+
+public class SignUpActivity extends AppCompatActivity {
+
+    EditText emailEditText,passwordEditText,confirmPasswordEditText;
+    Button createAccountBtn;
+    ProgressBar progressBar;
+    TextView loginBtnTextView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_sign_up);
+
+        emailEditText = findViewById(R.id.email_edit_text);
+        passwordEditText = findViewById(R.id.password_edit_text);
+        confirmPasswordEditText = findViewById(R.id.confirm_password_edit_text);
+        createAccountBtn = findViewById(R.id.create_account_btn);
+        progressBar = findViewById(R.id.progress_bar);
+        loginBtnTextView = findViewById(R.id.login_text_view_btn);
+
+        createAccountBtn.setOnClickListener(v-> createAccount());
+        loginBtnTextView.setOnClickListener(v-> finish());
+
+    }
+
+    void createAccount() {
+        String email = emailEditText.getText().toString();
+        String password = passwordEditText.getText().toString();
+        String confirmPassword = confirmPasswordEditText.getText().toString();
+
+        boolean isValid = validateData(email, password, confirmPassword);
+
+        if(!isValid){
+            return;
+        }
+        createAccountInFirebase(email, password);
+    }
+    void createAccountInFirebase(String email, String password) {
+        chargeInProgress(true);
+
+        FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
+        firebaseAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(SignUpActivity.this,
+                new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        chargeInProgress(false); // Hide progress indicator
+
+                        if (task.isSuccessful()) {
+                            Utility.showToast(SignUpActivity.this, "Successfully created account. Check email to verify");
+                            firebaseAuth.getCurrentUser().sendEmailVerification();
+                            firebaseAuth.signOut();
+                            finish();
+                        } else {
+                            Utility.showToast(SignUpActivity.this, task.getException().getLocalizedMessage());
+                        }
+                    }
+                });
+    }
+
+
+    void chargeInProgress(boolean inProgress){
+        if(inProgress){
+            progressBar.setVisibility(View.VISIBLE);
+            createAccountBtn.setVisibility(View.GONE);
+
+
+        }else{
+            progressBar.setVisibility(View.GONE);
+            createAccountBtn.setVisibility(View.VISIBLE);
+        }
+    }
+    boolean validateData(String email, String password, String confirmPassword) {
+        boolean isValid = true;
+
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            emailEditText.setError("Email is invalid");
+            isValid = false;
+        } else {
+            emailEditText.setError(null); // Clear the error
+        }
+
+        if (password.length() < 6) {
+            passwordEditText.setError("Password length is invalid");
+            isValid = false;
+        } else {
+            passwordEditText.setError(null); // Clear the error
+        }
+
+        if (!password.equals(confirmPassword)) {
+            confirmPasswordEditText.setError("Passwords do not match");
+            isValid = false;
+        } else {
+            confirmPasswordEditText.setError(null); // Clear the error
+        }
+
+        return isValid;
+    }
+
+}
